@@ -269,6 +269,21 @@ POST '/quizzes'
   "error": 404,
   "message": "resource not found"
 }
+
+PUT '/questions/<question_id>'
+- Updates any of: question, answer, category, difficulty
+- Body (example):
+{
+  "question": "Updated?",
+  "difficulty": 4
+}
+- 200 OK:
+{
+  "success": true,
+  "updated": 12,
+  "question": { ...updated fields... }
+}
+- 404 if id not found, 400 for bad payload, 422 on DB error
 ### Documentation Example
 
 `GET '/api/v1.0/categories'`

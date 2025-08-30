@@ -188,7 +188,6 @@ def create_app(test_config=None):
                 "current_category": None
             }), 200
 
-        # --- CREATE PATH ---
         question = data.get('question')
         answer = data.get('answer')
         category = data.get('category')      # stored as string in your model
@@ -303,6 +302,45 @@ def create_app(test_config=None):
             "question": question.format(),
             "current_category": category_id
         }), 200
+
+
+    @app.route('/questions/<int:question_id>', methods=['PUT'])
+    def update_question(question_id):
+        q = Question.query.get(question_id)
+        if q is None:
+            abort(404)
+
+        data = request.get_json(silent=True) or {}
+
+        if not any(k in data for k in ('question', 'answer', 'category', 'difficulty')):
+            abort(400)
+
+        if 'question' in data:
+            q.question = data['question']
+        if 'answer' in data:
+            q.answer = data['answer']
+        if 'category' in data:
+            q.category = str(data['category'])
+        if 'difficulty' in data:
+            try:
+                q.difficulty = int(data['difficulty'])
+            except (TypeError, ValueError):
+                abort(400)
+
+        try:
+            q.update() 
+        except Exception:
+            db.session.rollback()
+            abort(422)
+
+        return jsonify({
+            "success": True,
+            "updated": q.id,
+            "question": q.format()
+        }), 200
+
+
+
     """
     @TODO:
     Create error handlers for all expected errors
@@ -316,6 +354,10 @@ def create_app(test_config=None):
     @app.errorhandler(400)
     def bad_request(error):
         return jsonify({"success": False, "error": 400, "message": "bad request"}), 400
+    
+    @app.errorhandler(422)
+    def bad_request(error):
+        return jsonify({"success": False, "error": 422, "message": "unprocessable content"}), 422
 
     return app
 

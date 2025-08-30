@@ -166,6 +166,88 @@ class TriviaTestCase(unittest.TestCase):
         self.assertIsNotNone(q)
         self.assertEqual(q["category"], "1")
 
+    
+
+    def test_get_categories_404_when_empty(self):
+
+        with self.app.app_context():
+            Category.query.delete()
+            db.session.commit()
+
+        res = self.client.get("/categories")
+        self.assertEqual(res.status_code, 404)
+        data = res.get_json()
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error"], 404)
+
+
+    def test_delete_question_404_nonexistent(self):
+        res = self.client.delete("/questions/999999")
+        self.assertEqual(res.status_code, 404)
+        data = res.get_json()
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error"], 404)
+
+
+    def test_search_questions_empty_ok(self):
+        res = self.client.post("/questions", json={"searchTerm": "no-such-text-xyz"})
+        self.assertEqual(res.status_code, 200)          # API returns 200 with empty list
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertIn("questions", data)
+        self.assertEqual(len(data["questions"]), 0)
+        self.assertEqual(data["total_questions"], 0)
+        self.assertIsNone(data["current_category"])
+
+
+    def test_quizzes_bad_body_400(self):
+
+        res = self.client.post("/quizzes", json={
+            "previous_questions": [],
+            "quiz_category": {"id": "bad"}
+        })
+        self.assertEqual(res.status_code, 400)
+        data = res.get_json()
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error"], 400)
+
+    def test_update_question_put_success_persists(self):
+        with self.app.app_context():
+            q = Question(question="Old?", answer="A", category="1", difficulty=1)
+            q.insert()
+            qid = q.id
+
+        res = self.client.put(f"/questions/{qid}", json={"question": "Updated!", "difficulty": 4})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["updated"], qid)
+        self.assertEqual(data["question"]["question"], "Updated!")
+        self.assertEqual(data["question"]["difficulty"], 4)
+
+        with self.app.app_context():
+            q2 = Question.query.get(qid)
+            self.assertEqual(q2.question, "Updated!")
+            self.assertEqual(q2.difficulty, 4)
+
+    def test_update_question_put_404_nonexistent(self):
+        res = self.client.put("/questions/999999", json={"difficulty": 2})
+        self.assertEqual(res.status_code, 404)
+        self.assertFalse(res.get_json()["success"])
+
+    def test_update_question_put_400_bad_payload(self):
+        with self.app.app_context():
+            q = Question(question="Bad payload?", answer="A", category="1", difficulty=1)
+            q.insert()
+            qid = q.id
+
+        res = self.client.put(f"/questions/{qid}", json={})
+        self.assertEqual(res.status_code, 400)
+
+        res2 = self.client.put(f"/questions/{qid}", json={"difficulty": "NaN"})
+        self.assertEqual(res2.status_code, 400)
+        
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
     """
@@ -173,5 +255,3 @@ if __name__ == "__main__":
     Write at least one test for each test for successful operation and for expected errors.
     """
 
-
-# Make the tests conveniently executable
